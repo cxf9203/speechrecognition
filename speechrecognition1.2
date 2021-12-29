@@ -1,0 +1,216 @@
+import time
+import threading
+import sys
+import nls  #ALI SDK
+import pyttsx3 #    python -m pip install pyttsx3==2.71  注意版本问题，过高会报错。。
+import pyaudio
+import wave
+from tqdm import tqdm   #pip install tqdm
+cmd = ""
+def SpeakText(command):
+   engine = pyttsx3.init()
+   engine.say(command)
+   engine.runAndWait()
+SpeakText('hello brother，how is it going')
+
+URL = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"
+AKID = "LTAI5tGc71aLV5sMmb6mQLCp"
+AKKEY = "XPimfUwDi08jI2fWFG1SVzZAJHpr2F"
+APPKEY = "m9qkQFFc0ynOzTO0"
+
+
+class TestTts:   #文本转语音类
+    def __init__(self, tid, test_file):
+        self.__th = threading.Thread(target=self.__test_run)
+        self.__id = tid
+        self.__test_file = test_file
+
+    def start(self, text):
+        self.__text = text
+        self.__f = open(self.__test_file, "wb")
+        self.__th.start()
+
+    def test_on_metainfo(self, message, *args):
+        print("on_metainfo message=>{}".format(message))
+
+    def test_on_error(self, message, *args):
+        print("on_error args=>{}".format(args))
+
+    def test_on_close(self, *args):
+        print("on_close: args=>{}".format(args))
+        try:
+            self.__f.close()
+        except Exception as e:
+            print("close file failed since:", e)
+
+    def test_on_data(self, data, *args):
+        try:
+            self.__f.write(data)
+        except Exception as e:
+            print("write data failed:", e)
+
+    def test_on_completed(self, message, *args):
+        print("on_completed:args=>{} message=>{}".format(args, message))
+
+    def __test_run(self):
+        print("thread:{} start..".format(self.__id))
+        tts = nls.NlsSpeechSynthesizer(
+            url=URL,
+            akid=AKID,
+            aksecret=AKKEY,
+            appkey=APPKEY,
+            on_metainfo=self.test_on_metainfo,
+            on_data=self.test_on_data,
+            on_completed=self.test_on_completed,
+            on_error=self.test_on_error,
+            on_close=self.test_on_close,
+            callback_args=[self.__id]
+        )
+
+        print("{}: session start".format(self.__id))
+        r = tts.start(self.__text, voice="xiaobei", aformat="mp3")
+        print("{}: tts done with result:{}".format(self.__id, r))
+        time.sleep(5)
+
+
+class TestSt:   #语音识别类
+    def __init__(self, tid, test_file):
+        self.__th = threading.Thread(target=self.__test_run)
+        self.__id = tid
+        self.__test_file = test_file
+   
+    def loadfile(self, filename):
+        with open(filename, "rb") as f:
+            self.__data = f.read()
+    
+    def start(self):
+        self.loadfile(self.__test_file)
+        self.__th.start()
+
+    def test_on_sentence_begin(self, message, *args):
+        print("test_on_sentence_begin:{}".format(message))
+
+    def test_on_sentence_end(self, message, *args):
+        global cmd
+        text = "test_on_sentence_end:{}".format(message)
+        print("test_on_sentence_end:{}".format(message))
+        dict_1 = eval(message)  ###str convert to dict
+        print(dict_1)
+        print("test_on_sentence_end:{}".format(dict_1["payload"]))
+        if ('result' in dict_1["payload"].keys()):
+            print("result received")
+            cmd = dict_1["payload"]["result"]
+            print("current text is ", cmd)
+            #if SpeakText(cmd)
+            #else
+            tts = TestTts("thread2", "output.mp3")
+            tts.start(cmd)
+            print("Exiting tts Thread2")
+        else:
+            pass
+
+    def test_on_start(self, message, *args):
+        print("test_on_start:{}".format(message))
+
+    def test_on_error(self, message, *args):
+        print("on_error args=>{}".format(args))
+
+    def test_on_close(self, *args):
+        print("on_close: args=>{}".format(args))
+
+    def test_on_result_chg(self, message, *args):
+        print("test_on_chg:{}".format(message))
+
+    def test_on_completed(self, message, *args):
+        print("on_completed:args=>{} message=>{}".format(args, message))
+
+
+    def __test_run(self):
+        print("thread:{} start..".format(self.__id))
+        sr = nls.NlsSpeechTranscriber(
+                    url=URL,
+                    akid=AKID,
+                    aksecret=AKKEY,
+                    appkey=APPKEY,
+                    on_sentence_begin=self.test_on_sentence_begin,
+                    on_sentence_end=self.test_on_sentence_end,
+                    on_start=self.test_on_start,
+                    on_result_changed=self.test_on_result_chg,
+                    on_completed=self.test_on_completed,
+                    on_error=self.test_on_error,
+                    on_close=self.test_on_close,
+                    callback_args=[self.__id]
+                )
+        while True:
+            print("{}: session start".format(self.__id))
+            r = sr.start(aformat="pcm",
+                    enable_intermediate_result=True,
+                    enable_punctutation_prediction=True,
+                    enable_inverse_text_normalization=True)
+
+            self.__slices = zip(*(iter(self.__data),) * 640)
+            for i in self.__slices:
+                sr.send_audio(bytes(i))
+                time.sleep(0.01)
+
+            sr.ctrl(ex={"test":"tttt"})
+            time.sleep(1)
+
+            r = sr.stop()
+            print("{}: sr stopped:{}".format(self.__id, r))
+            time.sleep(5)
+
+#获取麦克风音频并保存
+def record_audio(wave_out_path,record_second):
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 2
+    RATE = 44100
+    p = pyaudio.PyAudio()
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+    wf = wave.open(wave_out_path, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    print("* recording")
+    for i in tqdm(range(0, int(RATE / CHUNK * record_second))):
+        data = stream.read(CHUNK)
+        wf.writeframes(data)
+    print("* done recording")
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    wf.close()
+#新建一个线程用来获取麦克风输入后得到的临时文档
+class audiothread(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+    def run(self) :
+        try:
+            print("listen ....")
+            record_audio("audioresult.wav",record_second=4)
+        except:
+            pass
+#新建一个实例线程用来获取麦克风输入后得到的临时文档
+def torecordeaudio():
+    thread3recordvideo = audiothread(3,"thread3audioget")
+    thread3recordvideo.start()
+    thread3recordvideo.join()
+
+def multiruntest():
+    global cmd
+    rec = TestSt("thread1", "test1.pcm")
+    rec.start()
+
+
+
+nls.enableTrace(False)
+multiruntest()
+
+
