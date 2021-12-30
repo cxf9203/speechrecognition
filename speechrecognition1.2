@@ -1,17 +1,20 @@
 import time
 import threading
 import sys
-import nls  #ALI SDK
-import pyttsx3 #    python -m pip install pyttsx3==2.71  注意版本问题，过高会报错。。
-import pyaudio
+import nls  # ALI SDK
+import pyttsx3  # python -m pip install pyttsx3==2.71  注意版本问题，过高会报错。。
+import pyaudio   #3.7版本whell安装
 import wave
-from tqdm import tqdm   #pip install tqdm
+from tqdm import tqdm  # pip install tqdm
+from playsound import playsound
+from pygame import mixer    #pip install pygame
 cmd = ""
+
+
 def SpeakText(command):
-   engine = pyttsx3.init()
-   engine.say(command)
-   engine.runAndWait()
-SpeakText('hello brother，how is it going')
+    engine = pyttsx3.init()
+    engine.say(command)
+    engine.runAndWait()
 
 URL = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"
 AKID = "LTAI5tGc71aLV5sMmb6mQLCp"
@@ -19,7 +22,7 @@ AKKEY = "XPimfUwDi08jI2fWFG1SVzZAJHpr2F"
 APPKEY = "m9qkQFFc0ynOzTO0"
 
 
-class TestTts:   #文本转语音类
+class TestTts:  # 文本转语音类
     def __init__(self, tid, test_file):
         self.__th = threading.Thread(target=self.__test_run)
         self.__id = tid
@@ -72,17 +75,46 @@ class TestTts:   #文本转语音类
         print("{}: tts done with result:{}".format(self.__id, r))
         time.sleep(5)
 
+SpeakText('hello brother，how is it going')
+SpeakText("我是离线时的语音助手，我叫 爱勒克斯")
+audioname='lianwang.mp3'
+tts = TestTts("thread2", audioname)
+tts.start("您已经联网，我是您的在线助手，小贝。今天天气很好，您在瑞安学院上课吗？是否需要要休息下？来杯咖啡？")
+print("Exiting tts Thread2")
+#创建一个线程用来语音播报
+class audioplay(threading.Thread):
+    def __init__(self, threadID, name,audio=audioname):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.audio = audio
 
-class TestSt:   #语音识别类
+    def run(self):
+        time.sleep(5)
+        try:
+            mixer.init()
+            mixer.music.load(self.audio)
+            mixer.music.play()
+            time.sleep(15)
+            mixer.music.stop()
+        except:
+            pass
+##实例化联网后语音播报
+thread4audioplay = audioplay(4,"audioplay_thread")
+thread4audioplay.start()
+thread4audioplay.join()
+print("exit audioplay_thread")
+
+class TestSt:  # 语音识别类
     def __init__(self, tid, test_file):
         self.__th = threading.Thread(target=self.__test_run)
         self.__id = tid
         self.__test_file = test_file
-   
+
     def loadfile(self, filename):
         with open(filename, "rb") as f:
             self.__data = f.read()
-    
+
     def start(self):
         self.loadfile(self.__test_file)
         self.__th.start()
@@ -101,11 +133,18 @@ class TestSt:   #语音识别类
             print("result received")
             cmd = dict_1["payload"]["result"]
             print("current text is ", cmd)
-            #if SpeakText(cmd)
-            #else
+            # if SpeakText(cmd)
+            # else
             tts = TestTts("thread2", "output.mp3")
             tts.start(cmd)
             print("Exiting tts Thread2")
+            ##实例化联网后语音播报
+            thread4audioplay = audioplay(4, "audioplay_thread","output.mp3")
+            thread4audioplay.start()
+            thread4audioplay.join()
+            print("exit audioplay_thread")
+
+
         else:
             pass
 
@@ -124,44 +163,44 @@ class TestSt:   #语音识别类
     def test_on_completed(self, message, *args):
         print("on_completed:args=>{} message=>{}".format(args, message))
 
-
     def __test_run(self):
         print("thread:{} start..".format(self.__id))
         sr = nls.NlsSpeechTranscriber(
-                    url=URL,
-                    akid=AKID,
-                    aksecret=AKKEY,
-                    appkey=APPKEY,
-                    on_sentence_begin=self.test_on_sentence_begin,
-                    on_sentence_end=self.test_on_sentence_end,
-                    on_start=self.test_on_start,
-                    on_result_changed=self.test_on_result_chg,
-                    on_completed=self.test_on_completed,
-                    on_error=self.test_on_error,
-                    on_close=self.test_on_close,
-                    callback_args=[self.__id]
-                )
+            url=URL,
+            akid=AKID,
+            aksecret=AKKEY,
+            appkey=APPKEY,
+            on_sentence_begin=self.test_on_sentence_begin,
+            on_sentence_end=self.test_on_sentence_end,
+            on_start=self.test_on_start,
+            on_result_changed=self.test_on_result_chg,
+            on_completed=self.test_on_completed,
+            on_error=self.test_on_error,
+            on_close=self.test_on_close,
+            callback_args=[self.__id]
+        )
         while True:
             print("{}: session start".format(self.__id))
             r = sr.start(aformat="pcm",
-                    enable_intermediate_result=True,
-                    enable_punctutation_prediction=True,
-                    enable_inverse_text_normalization=True)
+                         enable_intermediate_result=True,
+                         enable_punctutation_prediction=True,
+                         enable_inverse_text_normalization=True)
 
             self.__slices = zip(*(iter(self.__data),) * 640)
             for i in self.__slices:
                 sr.send_audio(bytes(i))
                 time.sleep(0.01)
 
-            sr.ctrl(ex={"test":"tttt"})
+            sr.ctrl(ex={"test": "tttt"})
             time.sleep(1)
 
             r = sr.stop()
             print("{}: sr stopped:{}".format(self.__id, r))
             time.sleep(5)
 
-#获取麦克风音频并保存
-def record_audio(wave_out_path,record_second):
+
+# 获取麦克风音频并保存
+def record_audio(wave_out_path, record_second):
     CHUNK = 1024
     FORMAT = pyaudio.paInt16
     CHANNELS = 2
@@ -185,32 +224,35 @@ def record_audio(wave_out_path,record_second):
     stream.close()
     p.terminate()
     wf.close()
-#新建一个线程用来获取麦克风输入后得到的临时文档
+
+
+# 新建一个线程用来获取麦克风输入后得到的临时文档
 class audiothread(threading.Thread):
     def __init__(self, threadID, name):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
-    def run(self) :
+
+    def run(self):
         try:
             print("listen ....")
-            record_audio("audioresult.wav",record_second=4)
+            record_audio("audioresult.wav", record_second=4)
         except:
             pass
-#新建一个实例线程用来获取麦克风输入后得到的临时文档
+
+
+# 新建一个实例线程用来获取麦克风输入后得到的临时文档
 def torecordeaudio():
-    thread3recordvideo = audiothread(3,"thread3audioget")
+    thread3recordvideo = audiothread(3, "thread3audioget")
     thread3recordvideo.start()
     thread3recordvideo.join()
 
+
 def multiruntest():
     global cmd
-    rec = TestSt("thread1", "test1.pcm")
+    rec = TestSt("thread1", "test1.wav")
     rec.start()
-
 
 
 nls.enableTrace(False)
 multiruntest()
-
-
