@@ -8,15 +8,19 @@ import pyaudio   #3.7版本whell安装
 import wave
 from tqdm import tqdm  # pip install tqdm
 from playsound import playsound
-from pygame import mixer    #pip install pygame
 
+
+# 定义数据流块
+
+
+from pygame import mixer    #pip install pygame
 #setup
 CHUNK = 1024
 cmd = ""
-URL = "wss://nls-gateway.cn-s
-AKID = "LTAI5tGc71aLV
-AKKEY = "XPimfUwDi08jI2f
-APPKEY = "m9qkQFFc0y
+URL = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"
+AKID = "LTAI5tGc71aLV5sMmb6mQLCp"
+AKKEY = "XPimfUwDi08jI2fWFG1SVzZAJHpr2F"
+APPKEY = "m9qkQFFc0ynOzTO0"
 
 TEXT='我是陈信奉的语音助手小贝，祝老婆元旦快乐！主耶和华祝福满满，新的一年没有加班！'
 def SpeakText(command):
@@ -149,6 +153,53 @@ class audioplay(threading.Thread):
         playsound(self.audio)
         threadLock.release()
 
+# 获取麦克风音频并保存
+def record_audio(wave_out_path, record_second):
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 2
+    RATE = 44100
+    p = pyaudio.PyAudio()
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+    wf = wave.open(wave_out_path, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    print("* recording")
+    for i in tqdm(range(0, int(RATE / CHUNK * record_second))):
+        data = stream.read(CHUNK)
+        wf.writeframes(data)
+    print("* done recording")
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    wf.close()
+
+
+# 新建一个线程用来获取麦克风输入后得到的临时文档
+class audiothread(threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+
+    def run(self):
+        try:
+            print("listen ....")
+            record_audio("cmdaudio.wav", record_second=4)
+        except:
+            pass
+
+
+# 新建一个实例线程用来获取麦克风输入后得到的临时文档
+def torecordeaudio():
+    thread3recordvideo = audiothread(3, "thread3audioget")
+    thread3recordvideo.start()
+    thread3recordvideo.join()
 
 nls.enableTrace(False)
 threadLock = threading.Lock()
@@ -156,8 +207,27 @@ threads = []
 # Add threads to thread list
 
 if __name__ == '__main__':
-   # SpeakText('hello brother，how is it going')
-   # SpeakText("我是离线时的语音助手，我叫 爱勒克斯")
+    #初始化
+    SpeakText('hello brother I am Alex，how is it going')
+    SpeakText("我是离线时的语音助手，我叫 爱勒克斯")
+    thread_tts = Test_to_sounds("thread1", "output.mp3", "您好，主人，我是您的语音助手，我叫小贝。您已经联网，可以和我语音交互了！您今天感觉怎么样？您有什么需要吗？")
+    thread_tts.start()
+    thread_tts.join()
+    thread_audioplay = audioplay("output.mp3")  # 将源码中command = ' '.join(command).encode('utf-16')变为command = ' '.join(command)即可
+    thread_audioplay.start()
+    thread_audioplay.join()
+    os.remove("output.mp3")
+    #triggrt to speak
+    SpeakText("please speaking")
+    #record audio for command
+    torecordeaudio()
+    time.sleep(1)
+    #transfer command to text and get cmd text
+    thread_stt = Sounds_to_text("thread4","cmdaudio.wav")
+    thread_stt.start()
+    thread_stt.join()
+    print(cmd)
+    time.sleep(1)
     while 1:
         threads = []
 
