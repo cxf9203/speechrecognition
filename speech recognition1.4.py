@@ -17,10 +17,9 @@ from pygame import mixer    #pip install pygame
 #setup
 CHUNK = 1024
 cmd = ""
-URL = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"
-AKID = "LTAI5tGc71aLV5sMmb6mQLCp"
-AKKEY = "XPimfUwDi08jI2fWFG1SVzZAJHpr2F"
-APPKEY = "m9qkQFFc0ynOzTO0"
+URL = "wss://nls-gateway.cn-shang
+AKKEY = "XPimfUwDi08jI2fWFG1
+APPKEY = "m9qkQFFc0yn
 
 TEXT='我是陈信奉的语音助手小贝，祝老婆元旦快乐！主耶和华祝福满满，新的一年没有加班！'
 def SpeakText(command):
