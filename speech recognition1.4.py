@@ -8,11 +8,6 @@ import pyaudio   #3.7版本whell安装
 import wave
 from tqdm import tqdm  # pip install tqdm
 from playsound import playsound
-
-
-# 定义数据流块
-
-
 from pygame import mixer    #pip install pygame
 #setup
 CHUNK = 1024
@@ -21,7 +16,7 @@ URL = "wss://nls-gateway.cn-shang
 AKKEY = "XPimfUwDi08jI2fWFG1
 APPKEY = "m9qkQFFc0yn
 
-TEXT='我是陈信奉的语音助手小贝，祝老婆元旦快乐！主耶和华祝福满满，新的一年没有加班！'
+TEXT=''
 def SpeakText(command):
     engine = pyttsx3.init()
     engine.say(command)
@@ -211,47 +206,43 @@ if __name__ == '__main__':
     #初始化
     #SpeakText('hello brother I am Alex，how is it going')
    # SpeakText("我是离线时的语音助手，我叫 爱勒克斯")
-    thread_tts = Test_to_sounds("thread1", "output.mp3", "我是陈信奉的语音助手小贝，祝老婆元旦快乐！主耶和华祝福满满，新的一年没有加班")
+    thread_tts = Test_to_sounds("thread1", "output.mp3", "我是陈信奉的语音助手小贝，祝老婆元旦快乐！新的一年没有加班")
     thread_tts.start()
     thread_tts.join()
     thread_audioplay = audioplay("output.mp3")  # 将源码中command = ' '.join(command).encode('utf-16')变为command = ' '.join(command)即可
     thread_audioplay.start()
     thread_audioplay.join()
     os.remove("output.mp3")
-    #triggrt to speak
-    SpeakText("please speaking")
-    #record audio for command
-    torecordeaudio()
-    time.sleep(1)
-    #transfer command to text and get cmd text
-    thread_stt = Sounds_to_text("thread4","cmdaudio.wav")
-    thread_stt.start()
-    thread_stt.join()
-    print(cmd)
+
     time.sleep(1)
     while 1:
         threads = []
-
-        thread_stt = Sounds_to_text("thread2", "tts_test.wav")
-        # Add threads to thread list
-        #threads.append(thread_tts)
+        # triggrt to speak
+        SpeakText("please speaking")
+        # record audio for command
+        torecordeaudio()
+        # transfer command to text and get cmd text
+        thread_stt = Sounds_to_text("thread4", "cmdaudio.wav")
         threads.append(thread_stt)
+        thread_stt.start()  #get text cmd
+        thread_stt.join()
+        print(cmd)
+        thread_tts = Test_to_sounds("thread1", "output.mp3", cmd)
+        # Add threads to thread list
+        threads.append(thread_tts)
         # threads.append(thread_audioplay)
-        time.sleep(1)
+        thread_tts.start()
+        thread_tts.join()
         print("Exiting tts Thread_tts")
-        thread_stt.start()
-        print("exiting stt thread_stt")
         for t in threads:
             t.join()
         print("Exiting  Thread")
-        thread_tts = Test_to_sounds("thread1", "output.mp3", cmd)
-        thread_tts.start()
-        thread_tts.join()
-
         # Delete file
         thread_audioplay = audioplay("output.mp3")  #将源码中command = ' '.join(command).encode('utf-16')变为command = ' '.join(command)即可
         thread_audioplay.start()
         thread_audioplay.join()
         os.remove("output.mp3")
+
+
 
 
